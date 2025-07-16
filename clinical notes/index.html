@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Note Jotting – Full UI</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: auto;
+      }
+      .section {
+        margin-bottom: 20px;
+      }
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      button.choice {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        background: #f0f0f0;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button.choice.selected {
+        background-color: #333;
+        color: #fff;
+        border-color: #000;
+      }
+      input[type="text"],
+      input[type="time"] {
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 5px;
+      }
+      #output {
+        white-space: pre-wrap;
+        background: #f9f9f9;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        min-height: 80px;
+      }
+      .activity-detail {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+      }
+      .activity-detail h4 {
+        margin: 0 0 6px 0;
+      }
+      .section h3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .section h3 button {
+        font-size: 0.8em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #eee;
+        border: 1px solid #ccc;
+        cursor: pointer;
+      }
+      .badge {
+        background-color: #333;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-left: 8px;
+      }
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      button.choice {
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        background: #f0f0f0;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button.choice.selected {
+        background-color: #333;
+        color: #fff;
+        border-color: #000;
+      }
+      .checkbox-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 5px 0 15px 15px;
+      }
+      .checkbox-row label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      textarea {
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        min-height: 80px;
+        font-family: sans-serif;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Note Jotting – Prompting + Assistance</h2>
+
+    <div class="section">
+      <h3>Client</h3>
+      <input
+        type="text"
+        id="client-input"
+        placeholder="Type client name..."
+        oninput="handleClientInput()"
+        autocomplete="off"
+      />
+      <div id="client-suggestions" class="button-group"></div>
+    </div>
+
+    <div class="section">
+      <h3>Session Duration</h3>
+      <div class="button-group" id="duration-buttons"></div>
+    </div>
+
+    <div class="section">
+      <h3>Start Time</h3>
+      <input type="time" id="start-time-picker" />
+    </div>
+
+    <div class="section">
+      <h3>Activities</h3>
+      <div class="button-group" id="activity-buttons"></div>
+      <button
+        class="choice"
+        id="handwriting-toggle-button"
+        onclick="toggleLetterFormSection()"
+      >
+        Handwriting
+      </button>
+    </div>
+    <div class="section"></div>
+
+    <div class="section" id="activity-details-section"></div>
+    <div class="section hidden" id="letter-formation-section">
+      <h3>Prompted Letters</h3>
+      <div class="toggle-row">
+        <strong>Letter Case:</strong>
+        <button onclick="setLetterCase('lower')">Aa Lowercase</button>
+        <button onclick="setLetterCase('upper')">AA Uppercase</button>
+      </div>
+      <div class="button-group" id="prompted-letters"></div>
+      <div id="prompted-details"></div>
+    </div>
+
+    <div class="section hidden" id="letter-summary-section">
+      <h3>Prompt Summary Output</h3>
+      <textarea id="prompt-output" readonly></textarea>
+    </div>
+
+    <div class="section">
+      <h3>
+        Impressions <span id="impression-count" class="badge">0</span>
+        <button onclick="clearSelections('impressions')">Clear All</button>
+      </h3>
+      <div class="button-group" id="impression-buttons"></div>
+    </div>
+
+    <div class="section">
+      <h3>
+        Plans <span id="plan-count" class="badge">0</span>
+        <button onclick="clearSelections('plans')">Clear All</button>
+      </h3>
+      <div class="button-group" id="plan-buttons"></div>
+    </div>
+
+    <button class="choice" id="submit-btn" onclick="handleSubmit()">
+      Create Note
+    </button>
+
+    <h3>Generated Note</h3>
+    <textarea style="height: auto" id="output"></textarea>
+
+    <script>
+      function toggleLetterFormSection() {
+        const formSec = document.getElementById("letter-formation-section");
+        const summarySec = document.getElementById("letter-summary-section");
+        const toggleBtn = document.getElementById("handwriting-toggle-button");
+        formSec.classList.toggle("hidden");
+        summarySec.classList.toggle("hidden");
+        toggleBtn.classList.toggle("selected");
+      }
+
+      const promptState = {
+        letterCase: "lower",
+        promptedLetters: [],
+      };
+
+      const baseLetters = "abcdefghijklmnopqrstuvwxyz".split("");
+
+      function setLetterCase(mode) {
+        promptState.letterCase = mode;
+        renderPromptedLetters();
+      }
+
+      function renderPromptedLetters() {
+        const container = document.getElementById("prompted-letters");
+        container.innerHTML = "";
+        const letters = baseLetters.map((l) =>
+          promptState.letterCase === "upper" ? l.toUpperCase() : l,
+        );
+
+        letters.forEach((letter) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.textContent = letter;
+
+          const exists = promptState.promptedLetters.find(
+            (p) => p.letter === letter,
+          );
+          if (exists) btn.classList.add("selected");
+
+          btn.addEventListener("click", () => {
+            const index = promptState.promptedLetters.findIndex(
+              (p) => p.letter === letter,
+            );
+            if (index >= 0) {
+              promptState.promptedLetters.splice(index, 1);
+            } else {
+              promptState.promptedLetters.push({
+                letter,
+                case: promptState.letterCase,
+                form: false,
+                align: false,
+                space: false,
+              });
+            }
+            renderPromptedLetters();
+            renderPromptedDetails();
+            updatePromptOutput();
+          });
+
+          container.appendChild(btn);
+        });
+      }
+
+      function renderPromptedDetails() {
+        const section = document.getElementById("prompted-details");
+        section.innerHTML = "";
+
+        promptState.promptedLetters.forEach((entry) => {
+          const block = document.createElement("div");
+          block.className = "checkbox-row";
+
+          const label = document.createElement("strong");
+          label.textContent = `${entry.letter}:`;
+          block.appendChild(label);
+
+          ["form", "align", "space"].forEach((reason) => {
+            const wrapper = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = entry[reason];
+
+            checkbox.addEventListener("change", () => {
+              entry[reason] = checkbox.checked;
+              updatePromptOutput();
+            });
+
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(document.createTextNode(reason));
+            block.appendChild(wrapper);
+          });
+
+          section.appendChild(block);
+        });
+      }
+      let promptOutput;
+      function updatePromptOutput() {
+        const grouped = { form: [], align: [], space: [] };
+
+        promptState.promptedLetters.forEach(
+          ({ letter, form, align, space }) => {
+            if (form) grouped.form.push(letter);
+            if (align) grouped.align.push(letter);
+            if (space) grouped.space.push(letter);
+          },
+        );
+
+        const output = [];
+        if (grouped.form.length)
+          output.push("Prompt to form " + grouped.form.join(", "));
+        if (grouped.align.length)
+          output.push("Prompt to align " + grouped.align.join(", "));
+        if (grouped.space.length)
+          output.push("Prompt to space " + grouped.space.join(", "));
+
+        document.getElementById("prompt-output").value =
+          output.join(". ") + (output.length ? "." : "");
+        promptOutput = output.join(". ") + (output.length ? "." : "");
+      }
+
+      renderPromptedLetters();
+      const activities = [
+        "button",
+        "snap buttons",
+        "shape sequencing",
+        "search and match",
+        "matching talent",
+        "fishing game",
+        "bead clipping",
+        "meal prep - banana bowl",
+        "social story - road safety",
+        "social story - door safety",
+        "social story - buying food",
+        "social story - personal space",
+        "social story - water bottle hygiene",
+        "sensory play - slime",
+        "sensory play - putty",
+      ];
+
+      const impressions = [
+        "attentive",
+        "alert",
+        "++verbal",
+        "chatty",
+        "distracted",
+        "disengaged",
+        "slept in",
+        "confused",
+      ];
+
+      const plans = ["continue skill building", "monitor", "rapport building"];
+
+      const promptTypesList = [
+        "gestural prompt",
+        "modelling prompt",
+        "verbal prompt",
+        "physical prompt",
+        "partial physical prompt",
+      ];
+
+      const independenceLevels = [
+        "indep with device",
+        "indep",
+        "supervision",
+        "standby assistance",
+        "min assistance",
+        "mod assistance",
+        "max assistance",
+      ];
+
+      clientGoalsDB = {};
+      //   Jessie: "Improve fine motor skills & attention",
+      //   Sammy: "Increase engagement in group tasks",
+      //   Ali: "Build verbal expression and social rapport",
+      //   Maya: "Sustain focus during structured play",
+      //   Luca: "Develop independence in task completion",
+
+      const state = {
+        client: null,
+        duration: null,
+        startTime: null,
+        activities: [],
+        impressions: [],
+        plans: [],
+      };
+
+      function handleClientInput() {
+        const input = document
+          .getElementById("client-input")
+          .value.split(" ")
+          .map(
+            (item) =>
+              item.slice(0, 1).toUpperCase() + item.slice(1).toLowerCase(),
+          )
+          .join(" ");
+        const suggestionsBox = document.getElementById("client-suggestions");
+        suggestionsBox.innerHTML = "";
+
+        if (!input) return;
+
+        const matches = Object.keys(clientGoalsDB).filter((name) =>
+          name.toLowerCase().includes(input),
+        );
+        const btn = document.createElement("button");
+        btn.className = "choice";
+        btn.textContent = input;
+
+        btn.addEventListener("click", () => {
+          document.getElementById("client-input").value = input;
+          state.client = input;
+          btn.classList.add("selected");
+        });
+        suggestionsBox.appendChild(btn);
+        matches.forEach((match) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.textContent = match;
+          btn.addEventListener("click", () => {
+            document.getElementById("client-input").value = match;
+            suggestionsBox.innerHTML = "";
+            state.client = match;
+          });
+          suggestionsBox.appendChild(btn);
+        });
+      }
+
+      function renderDurationButtons() {
+        const container = document.getElementById("duration-buttons");
+        const options = [15, 30, 45, 60, 75, 90];
+        container.innerHTML = "";
+
+        options.forEach((mins) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.textContent = `${mins} mins`;
+
+          btn.addEventListener("click", () => {
+            state.duration = mins;
+            updateSelected("duration-buttons", mins);
+            setDefaultStartTime();
+          });
+
+          container.appendChild(btn);
+        });
+      }
+
+      function setDefaultStartTime() {
+        const input = document.getElementById("start-time-picker");
+        let duration = state.duration || 60;
+
+        const now = new Date();
+        const adjusted = new Date(now.getTime() - (duration - 15) * 60 * 1000);
+
+        adjusted.setMinutes(0);
+        adjusted.setSeconds(0);
+        adjusted.setMilliseconds(0);
+
+        const hrs = String(adjusted.getHours()).padStart(2, "0");
+        const mins = String(adjusted.getMinutes()).padStart(2, "0");
+
+        const formatted = `${hrs}:${mins}`;
+        input.value = formatted;
+        state.startTime = formatted;
+
+        input.addEventListener("input", (e) => {
+          state.startTime = e.target.value;
+        });
+      }
+
+      function renderMultiSelect(containerId, options, key) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+
+        options.forEach((val) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.textContent = val;
+
+          btn.addEventListener("click", () => {
+            const idx = state[key].indexOf(val);
+            if (idx > -1) {
+              state[key].splice(idx, 1);
+              btn.classList.remove("selected");
+            } else {
+              state[key].push(val);
+              btn.classList.add("selected");
+            }
+            updateCountBadge(key);
+          });
+
+          container.appendChild(btn);
+        });
+
+        updateCountBadge(key);
+      }
+
+      function updateCountBadge(key) {
+        const badgeId =
+          key === "impressions"
+            ? "impression-count"
+            : key === "plans"
+              ? "plan-count"
+              : null;
+        if (!badgeId) return;
+        const badge = document.getElementById(badgeId);
+        badge.textContent = state[key].length;
+      }
+
+      function clearSelections(key) {
+        state[key] = [];
+        const containerId =
+          key === "impressions"
+            ? "impression-buttons"
+            : key === "plans"
+              ? "plan-buttons"
+              : null;
+        if (!containerId) return;
+
+        const buttons = document.getElementById(containerId).children;
+        for (let btn of buttons) {
+          btn.classList.remove("selected");
+        }
+        updateCountBadge(key);
+      }
+
+      function updateSelected(containerId, selectedValue) {
+        const buttons = document.getElementById(containerId).children;
+        for (let i = 0; i < buttons.length; i++) {
+          const btn = buttons[i];
+          const val = parseInt(btn.textContent);
+          btn.classList.toggle("selected", val === selectedValue);
+        }
+      }
+
+      function renderActivityButtons() {
+        const container = document.getElementById("activity-buttons");
+        container.innerHTML = "";
+
+        activities.forEach((val, i) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.textContent = val;
+
+          btn.addEventListener("click", () => {
+            const existing = state.activities.find((act) => act.index === i);
+            if (existing) {
+              state.activities = state.activities.filter(
+                (act) => act.index !== i,
+              );
+            } else {
+              state.activities.push({
+                index: i,
+                promptTypes: [],
+                independence: null,
+              });
+            }
+            btn.classList.toggle("selected");
+            renderActivityDetails();
+          });
+
+          container.appendChild(btn);
+        });
+      }
+
+      function renderActivityDetails() {
+        const section = document.getElementById("activity-details-section");
+        section.innerHTML = "";
+
+        state.activities.forEach((activity) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "activity-detail";
+
+          const activityLabel = document.createElement("h4");
+          activityLabel.textContent = activities[activity.index];
+          wrapper.appendChild(activityLabel);
+
+          const promptRow = document.createElement("div");
+          promptRow.className = "button-group";
+
+          promptTypesList.forEach((type) => {
+            const btn = document.createElement("button");
+            btn.className = "choice";
+            btn.textContent = type;
+
+            btn.addEventListener("click", () => {
+              const idx = activity.promptTypes.indexOf(type);
+              if (idx > -1) {
+                activity.promptTypes.splice(idx, 1);
+                btn.classList.remove("selected");
+              } else {
+                activity.promptTypes.push(type);
+                btn.classList.add("selected");
+              }
+            });
+
+            if (activity.promptTypes.includes(type)) {
+              btn.classList.add("selected");
+            }
+
+            promptRow.appendChild(btn);
+          });
+
+          wrapper.appendChild(promptRow);
+
+          const independenceRow = document.createElement("div");
+          independenceRow.className = "button-group";
+
+          independenceLevels.forEach((level) => {
+            const btn = document.createElement("button");
+            btn.className = "choice";
+            btn.textContent = level;
+
+            btn.addEventListener("click", () => {
+              if (activity.independence === level) {
+                // Deselect if already selected
+                activity.independence = null;
+                btn.classList.remove("selected");
+              } else {
+                activity.independence = level;
+                Array.from(independenceRow.children).forEach((b) =>
+                  b.classList.remove("selected"),
+                );
+                btn.classList.add("selected");
+              }
+            });
+
+            if (activity.independence === level) {
+              btn.classList.add("selected");
+            }
+
+            independenceRow.appendChild(btn);
+          });
+
+          wrapper.appendChild(independenceRow);
+          section.appendChild(wrapper);
+        });
+      }
+
+      function createNote(state) {
+        // if (!clientGoalsDB[state.client]) throw new Error("Client not valid");
+        if (!state.duration) throw new Error("Duration not selected");
+        if (!state.startTime) throw new Error("Start time missing");
+        if (!state.activities.length) throw new Error("No activities selected");
+        if (!state.impressions.length)
+          throw new Error("No impressions selected");
+        if (!state.plans.length) throw new Error("No plans selected");
+
+        const activitiesOutput = state.activities.map((a) => ({
+          activity: activities[a.index],
+          promptTypes: a.promptTypes,
+          independence: a.independence || "",
+        }));
+
+        // Parse start time and calculate end time
+        const [hrs, mins] = state.startTime.split(":").map(Number);
+        const start = new Date();
+        start.setHours(hrs, mins, 0, 0);
+
+        const end = new Date(start.getTime() + state.duration * 60000);
+        const endHrs = String(end.getHours()).padStart(2, "0");
+        const endMins = String(end.getMinutes()).padStart(2, "0");
+        const endTimeFormatted = `${endHrs}:${endMins}`;
+
+        return {
+          timestamp: new Date().toISOString(),
+          client: state.client,
+          duration: `${state.duration} mins`,
+          startTime: state.startTime,
+          endTime: endTimeFormatted,
+          activities: activitiesOutput,
+          promptOutput: promptOutput,
+          impressions: state.impressions,
+          plans: state.plans,
+          // overallGoal: clientGoalsDB[state.client],
+        };
+      }
+      function handleSubmit() {
+        const submitBtn = document.getElementById("submit-btn");
+        const output = document.getElementById("output");
+        try {
+          const note = createNote(state);
+          const readable = formatNote(note);
+          output.value = readable;
+          submitBtn.classList.toggle("selected");
+        } catch (err) {
+          output.textContent = `⚠️ ${err.message}`;
+        }
+      }
+
+      function formatNote(note) {
+        const lines = [];
+
+        if (note.client) lines.push(`Client: ${note.client}`);
+        if (note.overallGoal) lines.push(`Goal: ${note.overallGoal}`);
+        if (note.duration) lines.push(`Duration: ${note.duration}`);
+        if (note.startTime && note.endTime)
+          lines.push(`Time: ${note.startTime} - ${note.endTime}`);
+
+        if (note.activities && note.activities.length) {
+          lines.push("Activities:");
+          note.activities.forEach((act) => {
+            const prompts = act.promptTypes.length
+              ? ` - ${act.promptTypes.join(", ")} to complete.`
+              : "";
+            const independence = act.independence
+              ? ` - ${act.independence}`
+              : "";
+            lines.push(`  - ${act.activity}${independence}${prompts}`);
+          });
+        }
+
+        if (note.promptOutput)
+          lines.push(`\nLetter prompts: ${note.promptOutput}`);
+
+        if (note.impressions.length)
+          lines.push(`Impressions: ${note.impressions.join(", ")}`);
+        if (note.plans.length) lines.push(`Plans: ${note.plans.join(", ")}`);
+
+        return lines.join("\n");
+      }
+
+      // Init
+      renderDurationButtons();
+      renderActivityButtons();
+      renderMultiSelect("impression-buttons", impressions, "impressions");
+      renderMultiSelect("plan-buttons", plans, "plans");
+      setDefaultStartTime();
+    </script>
+  </body>
+</html>
