@@ -199,10 +199,64 @@
     <button class="choice" id="submit-btn" onclick="handleSubmit()">
       Create Note
     </button>
-    <h3>Generated Note</h3>
+    <h3>
+      Generated Note
+      <button
+        type="button"
+        class="choice"
+        id="copy-note-btn"
+        aria-label="Copy note to clipboard"
+      >
+        Copy
+      </button>
+    </h3>
     <textarea id="output"></textarea>
 
     <script>
+      // Call once on load
+      initCopyButton();
+
+      function initCopyButton() {
+        const btn = document.getElementById("copy-note-btn");
+        const ta = document.getElementById("output");
+        if (!btn || !ta) return;
+
+        btn.addEventListener("click", async () => {
+          const text = ta.value;
+          const ok = await copyText(text, ta);
+          flashCopyStatus(btn, ok);
+        });
+      }
+
+      // Try modern Clipboard API; fallback to legacy select+execCommand
+      async function copyText(text, textAreaEl) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return true;
+          } catch (err) {
+            // fall through to legacy
+          }
+        }
+        try {
+          textAreaEl.focus();
+          textAreaEl.select();
+          // Some mobile browsers need explicit range
+          textAreaEl.setSelectionRange(0, textAreaEl.value.length);
+          const ok = document.execCommand("copy");
+          textAreaEl.setSelectionRange(0, 0); // optional tidy-up
+          return ok;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      // cheap visual feedback
+      function flashCopyStatus(btn, success) {
+        const old = btn.textContent;
+        btn.textContent = success ? "Copied!" : "Copy failed";
+        setTimeout(() => (btn.textContent = old), 1500);
+      }
       function toggleLetterFormSection() {
         const formSec = document.getElementById("letter-formation-section");
         const summarySec = document.getElementById("letter-summary-section");
