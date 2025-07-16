@@ -3,74 +3,114 @@
   <head>
     <meta charset="UTF-8" />
     <title>Note Jotting – Full UI</title>
+    <!-- Responsive viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <style>
+      :root {
+        --space-xs: 0.25rem;
+        --space-s: 0.5rem;
+        --space-m: 1rem;
+        --space-l: 1.5rem;
+        --radius-s: 4px;
+        --radius-m: 6px;
+        --tap-min: 44px; /* iOS min tappable ~44pt; see also Android 48dp rec */
+        --tap-gap: 8px;
+      }
+
+      html {
+        font-size: 16px; /* ≥16px stops iOS Safari auto-zoom on focus */
+      }
+
       body,
       html {
         font-family: sans-serif;
-        padding: 20px;
+        padding: var(--space-m);
         max-width: 800px;
-        height: auto;
         margin: auto;
       }
+
       .section {
-        margin-bottom: 20px;
+        margin-bottom: var(--space-l);
       }
-      .button-group {
+
+      /* headings wrap nicely */
+      .section h3 {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 10px;
+        gap: var(--space-s);
+        align-items: center;
       }
+      @media (max-width: 480px) {
+        .section h3 {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+
+      /* responsive button groups */
+      .button-group {
+        display: grid;
+        gap: var(--tap-gap);
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12ch), 1fr));
+        margin-bottom: var(--space-s);
+      }
+
       button.choice {
-        padding: 8px 12px;
+        padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem);
+        min-height: var(--tap-min);
         border: 1px solid #ccc;
         background: #f0f0f0;
-        border-radius: 4px;
+        border-radius: var(--radius-s);
         cursor: pointer;
+        line-height: 1.2;
       }
       button.choice.selected {
         background-color: #333;
         color: #fff;
         border-color: #000;
       }
+
       input[type="text"],
-      input[type="time"] {
-        padding: 8px;
+      input[type="time"],
+      textarea {
         width: 100%;
+        padding: 0.625rem;
         box-sizing: border-box;
-        margin-bottom: 5px;
+        font-family: sans-serif;
+        font-size: 1rem; /* ensures ≥16px */
       }
+
       #output {
-        white-space: pre-wrap;
         background: #f9f9f9;
-        padding: 10px;
+        padding: var(--space-m);
         border: 1px solid #ddd;
-        border-radius: 6px;
-        min-height: 50vh;
+        border-radius: var(--radius-m);
+        /* clamp gives sane floor/ideal/ceiling across devices */
+        min-height: clamp(30vh, 40vh, 60vh);
+        resize: vertical; /* allow user drag-resize */
+        /* white-space: pre-wrap; <-- not needed for <textarea>; commented out */
       }
+
       .activity-detail {
         border: 1px solid #ddd;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 5px;
+        padding: var(--space-m);
+        margin-bottom: var(--space-m);
+        border-radius: var(--radius-s);
       }
       .activity-detail h4 {
-        margin: 0 0 6px 0;
+        margin: 0 0 var(--space-s) 0;
       }
-      .section h3 {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
+
       .section h3 button {
         font-size: 0.8em;
         padding: 2px 6px;
-        border-radius: 4px;
+        border-radius: var(--radius-s);
         background: #eee;
         border: 1px solid #ccc;
         cursor: pointer;
       }
+
       .badge {
         background-color: #333;
         color: white;
@@ -79,24 +119,7 @@
         font-size: 0.8em;
         margin-left: 8px;
       }
-      .button-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-      button.choice {
-        padding: 6px 10px;
-        border: 1px solid #ccc;
-        background: #f0f0f0;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      button.choice.selected {
-        background-color: #333;
-        color: #fff;
-        border-color: #000;
-      }
+
       .checkbox-row {
         display: flex;
         flex-wrap: wrap;
@@ -108,18 +131,14 @@
         align-items: center;
         gap: 4px;
       }
+
       .toggle-row {
         display: flex;
         align-items: center;
         gap: 10px;
         margin-bottom: 10px;
       }
-      textarea {
-        width: 100%;
-        padding: 10px;
-        box-sizing: border-box;
-        font-family: sans-serif;
-      }
+
       .hidden {
         display: none;
       }
@@ -199,64 +218,66 @@
     <button class="choice" id="submit-btn" onclick="handleSubmit()">
       Create Note
     </button>
-    <h3>
-      Generated Note
-      <button
-        type="button"
-        class="choice"
-        id="copy-note-btn"
-        aria-label="Copy note to clipboard"
-      >
-        Copy
-      </button>
-    </h3>
-    <textarea id="output"></textarea>
+
+    <div class="section">
+      <h3>
+        Generated Note
+        <button
+          type="button"
+          class="choice"
+          id="copy-note-btn"
+          aria-label="Copy note to clipboard"
+        >
+          Copy
+        </button>
+      </h3>
+      <!-- rows attr optional fallback sizing; browser-defaults vary -->
+      <!-- <textarea id="output" rows="12"></textarea> -->
+      <textarea id="output"></textarea>
+    </div>
 
     <script>
-      // Call once on load
+      // ======== COPY BUTTON ========
       initCopyButton();
-
       function initCopyButton() {
         const btn = document.getElementById("copy-note-btn");
         const ta = document.getElementById("output");
         if (!btn || !ta) return;
-
         btn.addEventListener("click", async () => {
-          const text = ta.value;
-          const ok = await copyText(text, ta);
+          const ok = await copyText(ta.value, ta);
           flashCopyStatus(btn, ok);
         });
       }
 
-      // Try modern Clipboard API; fallback to legacy select+execCommand
+      // modern Clipboard API; fallback to legacy select+execCommand
       async function copyText(text, textAreaEl) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        if (navigator.clipboard?.writeText) {
           try {
             await navigator.clipboard.writeText(text);
             return true;
           } catch (err) {
-            // fall through to legacy
+            /* swallow & try legacy */
           }
         }
         try {
           textAreaEl.focus();
           textAreaEl.select();
-          // Some mobile browsers need explicit range
           textAreaEl.setSelectionRange(0, textAreaEl.value.length);
           const ok = document.execCommand("copy");
-          textAreaEl.setSelectionRange(0, 0); // optional tidy-up
+          textAreaEl.setSelectionRange(0, 0);
           return ok;
-        } catch (err) {
+        } catch {
           return false;
         }
       }
 
-      // cheap visual feedback
       function flashCopyStatus(btn, success) {
         const old = btn.textContent;
         btn.textContent = success ? "Copied!" : "Copy failed";
         setTimeout(() => (btn.textContent = old), 1500);
       }
+
+      // ======== HANDWRITING TOGGLE ========
       function toggleLetterFormSection() {
         const formSec = document.getElementById("letter-formation-section");
         const summarySec = document.getElementById("letter-summary-section");
@@ -266,11 +287,11 @@
         toggleBtn.classList.toggle("selected");
       }
 
+      // ======== LETTER PROMPT STATE ========
       const promptState = {
         letterCase: "lower",
         promptedLetters: [],
       };
-
       const baseLetters = "abcdefghijklmnopqrstuvwxyz".split("");
 
       function setLetterCase(mode) {
@@ -284,17 +305,14 @@
         const letters = baseLetters.map((l) =>
           promptState.letterCase === "upper" ? l.toUpperCase() : l,
         );
-
         letters.forEach((letter) => {
           const btn = document.createElement("button");
           btn.className = "choice";
           btn.textContent = letter;
-
           const exists = promptState.promptedLetters.find(
             (p) => p.letter === letter,
           );
           if (exists) btn.classList.add("selected");
-
           btn.addEventListener("click", () => {
             const index = promptState.promptedLetters.findIndex(
               (p) => p.letter === letter,
@@ -314,7 +332,6 @@
             renderPromptedDetails();
             updatePromptOutput();
           });
-
           container.appendChild(btn);
         });
       }
@@ -322,38 +339,32 @@
       function renderPromptedDetails() {
         const section = document.getElementById("prompted-details");
         section.innerHTML = "";
-
         promptState.promptedLetters.forEach((entry) => {
           const block = document.createElement("div");
           block.className = "checkbox-row";
-
           const label = document.createElement("strong");
           label.textContent = `${entry.letter}:`;
           block.appendChild(label);
-
           ["form", "align", "space"].forEach((reason) => {
             const wrapper = document.createElement("label");
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.checked = entry[reason];
-
             checkbox.addEventListener("change", () => {
               entry[reason] = checkbox.checked;
               updatePromptOutput();
             });
-
             wrapper.appendChild(checkbox);
             wrapper.appendChild(document.createTextNode(reason));
             block.appendChild(wrapper);
           });
-
           section.appendChild(block);
         });
       }
+
       let promptOutput;
       function updatePromptOutput() {
         const grouped = { form: [], align: [], space: [] };
-
         promptState.promptedLetters.forEach(
           ({ letter, form, align, space }) => {
             if (form) grouped.form.push(letter);
@@ -361,7 +372,6 @@
             if (space) grouped.space.push(letter);
           },
         );
-
         const output = [];
         if (grouped.form.length)
           output.push("Prompt to form " + grouped.form.join(", "));
@@ -369,13 +379,12 @@
           output.push("Prompt to align " + grouped.align.join(", "));
         if (grouped.space.length)
           output.push("Prompt to space " + grouped.space.join(", "));
-
         document.getElementById("prompt-output").value =
           output.join(". ") + (output.length ? "." : "");
         promptOutput = output.join(". ") + (output.length ? "." : "");
       }
 
-      renderPromptedLetters();
+      // ======== STATIC DATA ========
       const activities = [
         "button",
         "shoelacing",
@@ -436,13 +445,11 @@
         "max assistance",
       ];
 
-      clientGoalsDB = {};
-      //   Jessie: "Improve fine motor skills & attention",
-      //   Sammy: "Increase engagement in group tasks",
-      //   Ali: "Build verbal expression and social rapport",
-      //   Maya: "Sustain focus during structured play",
-      //   Luca: "Develop independence in task completion",
+      const clientGoalsDB = {
+        // e.g. "Jessie": "Improve fine motor skills & attention",
+      };
 
+      // ======== GLOBAL STATE ========
       const state = {
         client: null,
         duration: null,
@@ -452,6 +459,7 @@
         plans: [],
       };
 
+      // ======== CLIENT SUGGEST ========
       function handleClientInput() {
         const input = document
           .getElementById("client-input")
@@ -463,16 +471,13 @@
           .join(" ");
         const suggestionsBox = document.getElementById("client-suggestions");
         suggestionsBox.innerHTML = "";
-
         if (!input) return;
-
         const matches = Object.keys(clientGoalsDB).filter((name) =>
-          name.toLowerCase().includes(input),
+          name.toLowerCase().includes(input.toLowerCase()),
         );
         const btn = document.createElement("button");
         btn.className = "choice";
         btn.textContent = input;
-
         btn.addEventListener("click", () => {
           document.getElementById("client-input").value = input;
           state.client = input;
@@ -492,58 +497,48 @@
         });
       }
 
+      // ======== DURATION ========
       function renderDurationButtons() {
         const container = document.getElementById("duration-buttons");
         const options = [15, 30, 45, 60, 75, 90];
         container.innerHTML = "";
-
         options.forEach((mins) => {
           const btn = document.createElement("button");
           btn.className = "choice";
           btn.textContent = `${mins} mins`;
-
           btn.addEventListener("click", () => {
             state.duration = mins;
             updateSelected("duration-buttons", mins);
             setDefaultStartTime();
           });
-
           container.appendChild(btn);
         });
       }
 
       function setDefaultStartTime() {
         const input = document.getElementById("start-time-picker");
-        let duration = state.duration || 60;
-
+        const duration = state.duration || 60;
         const now = new Date();
         const adjusted = new Date(now.getTime() - (duration - 15) * 60 * 1000);
-
-        adjusted.setMinutes(0);
-        adjusted.setSeconds(0);
-        adjusted.setMilliseconds(0);
-
+        adjusted.setMinutes(0, 0, 0);
         const hrs = String(adjusted.getHours()).padStart(2, "0");
         const mins = String(adjusted.getMinutes()).padStart(2, "0");
-
         const formatted = `${hrs}:${mins}`;
         input.value = formatted;
         state.startTime = formatted;
-
         input.addEventListener("input", (e) => {
           state.startTime = e.target.value;
         });
       }
 
+      // ======== GENERIC MULTISELECT ========
       function renderMultiSelect(containerId, options, key) {
         const container = document.getElementById(containerId);
         container.innerHTML = "";
-
         options.forEach((val) => {
           const btn = document.createElement("button");
           btn.className = "choice";
           btn.textContent = val;
-
           btn.addEventListener("click", () => {
             const idx = state[key].indexOf(val);
             if (idx > -1) {
@@ -555,10 +550,8 @@
             }
             updateCountBadge(key);
           });
-
           container.appendChild(btn);
         });
-
         updateCountBadge(key);
       }
 
@@ -570,8 +563,7 @@
               ? "plan-count"
               : null;
         if (!badgeId) return;
-        const badge = document.getElementById(badgeId);
-        badge.textContent = state[key].length;
+        document.getElementById(badgeId).textContent = state[key].length;
       }
 
       function clearSelections(key) {
@@ -583,32 +575,27 @@
               ? "plan-buttons"
               : null;
         if (!containerId) return;
-
         const buttons = document.getElementById(containerId).children;
-        for (let btn of buttons) {
-          btn.classList.remove("selected");
-        }
+        for (const btn of buttons) btn.classList.remove("selected");
         updateCountBadge(key);
       }
 
       function updateSelected(containerId, selectedValue) {
         const buttons = document.getElementById(containerId).children;
-        for (let i = 0; i < buttons.length; i++) {
-          const btn = buttons[i];
+        for (const btn of buttons) {
           const val = parseInt(btn.textContent);
           btn.classList.toggle("selected", val === selectedValue);
         }
       }
 
+      // ======== ACTIVITIES ========
       function renderActivityButtons() {
         const container = document.getElementById("activity-buttons");
         container.innerHTML = "";
-
         activities.forEach((val, i) => {
           const btn = document.createElement("button");
           btn.className = "choice";
           btn.textContent = val;
-
           btn.addEventListener("click", () => {
             const existing = state.activities.find((act) => act.index === i);
             if (existing) {
@@ -625,7 +612,6 @@
             btn.classList.toggle("selected");
             renderActivityDetails();
           });
-
           container.appendChild(btn);
         });
       }
@@ -633,23 +619,20 @@
       function renderActivityDetails() {
         const section = document.getElementById("activity-details-section");
         section.innerHTML = "";
-
         state.activities.forEach((activity) => {
           const wrapper = document.createElement("div");
           wrapper.className = "activity-detail";
-
           const activityLabel = document.createElement("h4");
           activityLabel.textContent = activities[activity.index];
           wrapper.appendChild(activityLabel);
 
+          // prompt types
           const promptRow = document.createElement("div");
           promptRow.className = "button-group";
-
           promptTypesList.forEach((type) => {
             const btn = document.createElement("button");
             btn.className = "choice";
             btn.textContent = type;
-
             btn.addEventListener("click", () => {
               const idx = activity.promptTypes.indexOf(type);
               if (idx > -1) {
@@ -660,27 +643,21 @@
                 btn.classList.add("selected");
               }
             });
-
-            if (activity.promptTypes.includes(type)) {
+            if (activity.promptTypes.includes(type))
               btn.classList.add("selected");
-            }
-
             promptRow.appendChild(btn);
           });
-
           wrapper.appendChild(promptRow);
 
+          // independence levels (single select)
           const independenceRow = document.createElement("div");
           independenceRow.className = "button-group";
-
           independenceLevels.forEach((level) => {
             const btn = document.createElement("button");
             btn.className = "choice";
             btn.textContent = level;
-
             btn.addEventListener("click", () => {
               if (activity.independence === level) {
-                // Deselect if already selected
                 activity.independence = null;
                 btn.classList.remove("selected");
               } else {
@@ -691,21 +668,17 @@
                 btn.classList.add("selected");
               }
             });
-
-            if (activity.independence === level) {
-              btn.classList.add("selected");
-            }
-
+            if (activity.independence === level) btn.classList.add("selected");
             independenceRow.appendChild(btn);
           });
-
           wrapper.appendChild(independenceRow);
+
           section.appendChild(wrapper);
         });
       }
 
+      // ======== NOTE CREATION ========
       function createNote(state) {
-        // if (!clientGoalsDB[state.client]) throw new Error("Client not valid");
         if (!state.duration) throw new Error("Duration not selected");
         if (!state.startTime) throw new Error("Start time missing");
         if (!state.activities.length) throw new Error("No activities selected");
@@ -719,29 +692,28 @@
           independence: a.independence || "",
         }));
 
-        // Parse start time and calculate end time
+        // Parse start time and calc end
         const [hrs, mins] = state.startTime.split(":").map(Number);
         const start = new Date();
         start.setHours(hrs, mins, 0, 0);
-
         const end = new Date(start.getTime() + state.duration * 60000);
         const endHrs = String(end.getHours()).padStart(2, "0");
         const endMins = String(end.getMinutes()).padStart(2, "0");
-        const endTimeFormatted = `${endHrs}:${endMins}`;
 
         return {
           timestamp: new Date().toISOString(),
           client: state.client,
           duration: `${state.duration} mins`,
           startTime: state.startTime,
-          endTime: endTimeFormatted,
+          endTime: `${endHrs}:${endMins}`,
           activities: activitiesOutput,
-          promptOutput: promptOutput,
+          promptOutput,
           impressions: state.impressions,
           plans: state.plans,
           // overallGoal: clientGoalsDB[state.client],
         };
       }
+
       function handleSubmit() {
         const submitBtn = document.getElementById("submit-btn");
         const output = document.getElementById("output");
@@ -750,21 +722,21 @@
           const readable = formatNote(note);
           output.value = readable;
           submitBtn.classList.toggle("selected");
+          autoSizeTextArea(output); // auto-fit content
         } catch (err) {
-          output.textContent = `⚠️ ${err.message}`;
+          output.value = `⚠️ ${err.message}`;
+          autoSizeTextArea(output);
         }
       }
 
       function formatNote(note) {
         const lines = [];
-
         if (note.client) lines.push(`Client: ${note.client}`);
         if (note.overallGoal) lines.push(`Goal: ${note.overallGoal}`);
         if (note.duration) lines.push(`Duration: ${note.duration}`);
         if (note.startTime && note.endTime)
           lines.push(`Time: ${note.startTime} - ${note.endTime}`);
-
-        if (note.activities && note.activities.length) {
+        if (note.activities?.length) {
           lines.push("Activities:");
           note.activities.forEach((act) => {
             const prompts = act.promptTypes.length
@@ -776,23 +748,30 @@
             lines.push(`  - ${act.activity}${independence}${prompts}`);
           });
         }
-
         if (note.promptOutput)
           lines.push(`\nLetter prompts: ${note.promptOutput}`);
-
         if (note.impressions.length)
           lines.push(`Impressions: ${note.impressions.join(", ")}`);
         if (note.plans.length) lines.push(`Plans: ${note.plans.join(", ")}`);
-
         return lines.join("\n");
       }
 
-      // Init
+      // ======== AUTOSIZE TEXTAREA ========
+      const outputEl = document.getElementById("output");
+      outputEl.addEventListener("input", () => autoSizeTextArea(outputEl));
+
+      function autoSizeTextArea(el) {
+        el.style.height = "auto"; // reset so shrink works
+        el.style.height = el.scrollHeight + "px"; // fit content
+      }
+
+      // ======== INIT ========
       renderDurationButtons();
       renderActivityButtons();
       renderMultiSelect("impression-buttons", impressions, "impressions");
       renderMultiSelect("plan-buttons", plans, "plans");
       setDefaultStartTime();
+      renderPromptedLetters(); // initial letters render
     </script>
   </body>
 </html>
