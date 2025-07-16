@@ -4,10 +4,12 @@
     <meta charset="UTF-8" />
     <title>Note Jotting – Full UI</title>
     <style>
-      body {
+      body,
+      html {
         font-family: sans-serif;
         padding: 20px;
         max-width: 800px;
+        height: auto;
         margin: auto;
       }
       .section {
@@ -44,7 +46,7 @@
         padding: 10px;
         border: 1px solid #ddd;
         border-radius: 6px;
-        min-height: 80px;
+        min-height: 50vh;
       }
       .activity-detail {
         border: 1px solid #ddd;
@@ -116,7 +118,6 @@
         width: 100%;
         padding: 10px;
         box-sizing: border-box;
-        min-height: 80px;
         font-family: sans-serif;
       }
       .hidden {
@@ -198,9 +199,8 @@
     <button class="choice" id="submit-btn" onclick="handleSubmit()">
       Create Note
     </button>
-
     <h3>Generated Note</h3>
-    <textarea style="height: auto" id="output"></textarea>
+    <textarea id="output"></textarea>
 
     <script>
       function toggleLetterFormSection() {
